@@ -54,16 +54,41 @@ jobs:
             --icon assets/app.ico \
             main.py
 
-      - name: Upload build artifact
+      - name: Package ZIP for release
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { 'manual' }
+          $outDir = 'release'
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          $stage = Join-Path $outDir 'stage'
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item -Path 'dist/KickDropsMiner.exe' -Destination $stage -Force
+          if (Test-Path 'config.json') {
+            Copy-Item 'config.json' -Destination $stage -Force
+          } else {
+            Set-Content -Path (Join-Path $stage 'config.json') -Value '{}' -Encoding UTF8
+          }
+          foreach ($d in @('chromedriver-win64','locales','assets')) {
+            if (Test-Path $d) {
+              Copy-Item -Path $d -Destination (Join-Path $stage $d) -Recurse -Force
+            }
+          }
+          $zipPath = Join-Path $outDir ("KickDropsMiner_${version}.zip")
+          if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zipPath
+          Write-Host "Created $zipPath"
+
+      - name: Upload build artifact (ZIP)
         uses: actions/upload-artifact@v4
         with:
-          name: KickDropsMiner-windows
-          path: dist/KickDropsMiner.exe
+          name: KickDropsMiner-windows-zip
+          path: release/*.zip
 
       - name: Create GitHub Release and upload asset
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/KickDropsMiner.exe
+            release/*.zip
           generate_release_notes: true
