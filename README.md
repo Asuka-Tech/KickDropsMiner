@@ -134,3 +134,4 @@ Automates watching Kick.com streams to accumulate drop time. Comes with a compac
 ## Uninstall
 
 - Close the app and remove the folder. This deletes `config.json`, `cookies/`, and `chrome_data/`.
+
