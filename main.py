@@ -100,6 +100,8 @@ BUILTIN_TRANSLATIONS = {
         "drops_no_channels": "Aucune chaîne disponible pour cette campagne",
         "drops_added": "Ajouté: {channel}",
         "drops_watch_minutes": "Minutes à regarder:",
+        "warning": "Attention",
+        "cannot_edit_active_stream": "Impossible de modifier la durée d'un stream actif. Veuillez d'abord l'arrêter.",
     },
     "en": {
         "status_ready": "Ready",
@@ -172,6 +174,8 @@ BUILTIN_TRANSLATIONS = {
         "drops_no_channels": "No channels available for this campaign (or it is a Global Drop)",
         "drops_added": "Added: {channel}",
         "drops_watch_minutes": "Minutes to watch:",
+        "warning": "Warning",
+        "cannot_edit_active_stream": "Cannot edit the duration of an active stream. Please stop it first.",
     },
 }
 
@@ -1033,6 +1037,9 @@ class App(ctk.CTk):
         yscroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=yscroll.set)
         yscroll.grid(row=0, column=1, sticky="ns")
+        
+        # Bind double-click to edit minutes
+        self.tree.bind("<Double-Button-1>", self.on_tree_double_click)
 
         # Colored rows via tags
         try:
@@ -1119,6 +1126,47 @@ class App(ctk.CTk):
             pass
 
     # ----------- Actions -----------
+    def on_tree_double_click(self, event):
+        """Handle double-click on tree to edit minutes"""
+        region = self.tree.identify_region(event.x, event.y)
+        if region != "cell":
+            return
+        
+        column = self.tree.identify_column(event.x)
+        row_id = self.tree.identify_row(event.y)
+        
+        if not row_id:
+            return
+        
+        # Check if clicked on minutes column (column #2)
+        if column == "#2":
+            idx = int(row_id)
+            if idx >= len(self.config_data.items):
+                return
+            
+            # Check if this stream is currently running
+            if idx in self.workers:
+                messagebox.showwarning(
+                    self.t("warning"),
+                    self.t("cannot_edit_active_stream")
+                )
+                return
+                
+            current_minutes = self.config_data.items[idx]["minutes"]
+            
+            new_minutes = simpledialog.askinteger(
+                self.t("prompt_minutes_title"),
+                self.t("prompt_minutes_msg"),
+                initialvalue=current_minutes,
+                minvalue=0
+            )
+            
+            if new_minutes is not None:
+                self.config_data.items[idx]["minutes"] = new_minutes
+                self.config_data.save()
+                self.refresh_list()
+                self.status_var.set(f"Updated target to {new_minutes} minutes")
+    
     def refresh_list(self):
         for r in self.tree.get_children():
             self.tree.delete(r)
@@ -2123,6 +2171,19 @@ class App(ctk.CTk):
                 else:
                     current_tags.add("paused")
                 self.tree.item(str(idx), values=values, tags=tuple(current_tags))
+            
+            # Update status bar with elapsed time
+            if idx < len(self.config_data.items):
+                item = self.config_data.items[idx]
+                minutes = seconds // 60
+                secs = seconds % 60
+                time_str = f"{minutes}m {secs}s" if minutes > 0 else f"{secs}s"
+                status = self.t("tag_live") if live else self.t("tag_paused")
+                
+                if self.queue_running and self.queue_current_idx == idx:
+                    self.status_var.set(f"{self.t('queue_running_status', url=item['url'])} - {time_str} ({status})")
+                else:
+                    self.status_var.set(f"{self.t('status_playing', url=item['url'])} - {time_str} ({status})")
 
         self.after(0, ui_update)
 

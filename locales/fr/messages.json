@@ -68,5 +68,7 @@
   "drops_error": "Erreur lors du chargement des campagnes",
   "drops_no_channels": "Aucune chaîne disponible pour cette campagne (ou c'est un Drop Global)",
   "drops_added": "Ajouté: {channel}",
-  "drops_watch_minutes": "Minutes à regarder:"
+  "drops_watch_minutes": "Minutes à regarder:",
+  "warning": "Attention",
+  "cannot_edit_active_stream": "Impossible de modifier la durée d'un stream actif. Veuillez d'abord l'arrêter."
 }

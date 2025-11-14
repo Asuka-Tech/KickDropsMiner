@@ -68,5 +68,7 @@
   "drops_error": "Kampanyalar yüklenirken hata",
   "drops_no_channels": "Bu kampanya için kanal yok (veya bu bir Global Drop)",
   "drops_added": "Eklendi: {channel}",
-  "drops_watch_minutes": "İzlenecek dakika:"
+  "drops_watch_minutes": "İzlenecek dakika:",
+  "warning": "Uyarı",
+  "cannot_edit_active_stream": "Aktif bir akışın süresini düzenleyemezsiniz. Lütfen önce durdurun."
 }

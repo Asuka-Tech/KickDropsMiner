@@ -68,5 +68,7 @@
   "drops_error": "Error loading campaigns",
   "drops_no_channels": "No channels available for this campaign (or it is a Global Drop)",
   "drops_added": "Added: {channel}",
-  "drops_watch_minutes": "Minutes to watch:"
+  "drops_watch_minutes": "Minutes to watch:",
+  "warning": "Warning",
+  "cannot_edit_active_stream": "Cannot edit the duration of an active stream. Please stop it first."
 }
