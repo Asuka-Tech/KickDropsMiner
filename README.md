@@ -4,134 +4,112 @@
 
 # Kick Drop Miner
 
-Automates watching Kick.com streams to accumulate drop time. Comes with a compact CustomTkinter UI, drives Google Chrome via Selenium, persists state locally, and gracefully pauses/resumes when a stream goes offline/online.
+Kick Drop Miner automates watching Kick.com streams so you can keep drop timers moving without babysitting the site. The desktop app ships with a CustomTkinter UI, Selenium + undetected-chromedriver under the hood, persistent local storage, and smart handling for live/offline transitions.
 
-## Features
+## Highlights
 
-- Multiple links: add several Kick live URLs with a target watch time (in minutes)
-- Queue runner: processes items top-to-bottom, skips finished, retries offline items later
-- Smart timer: counts only while the stream is LIVE; auto-resumes after cuts
-- Cookie helper: open a browser window to sign in and save cookies per domain
-- Faster option: if `browser_cookie3` is installed, the app automatically imports cookies from your browsers (Chrome/Edge/Firefox) for the domain and saves them under `./cookies/`.
-- Playback controls: Mute, Hide Player, Mini Player overlay, Dark Mode (remembered)
-- Local persistence: `config.json`, per-domain cookies under `./cookies/`, and Chrome profile under `./chrome_data/`
-- Rate‑limit friendly: caches “is live?” API checks per item to reduce request frequency
+- **Queue automation** - stack as many live URLs as you want, give each a minute target, and let the queue skip finished entries or re-queue offline ones automatically.
+- **Drop campaign browser** - fetch the current Kick drop campaigns, preview the participating channels, and add any channel (or all of them) to your queue in one click.
+- **Cookie workflow** - open a Chrome window to log in manually or import cookies directly from Chrome/Edge/Firefox via `browser_cookie3`; cookies are saved per domain under `./cookies/`.
+- **Playback controls** - toggle mute, hide the `<video>` element, pop out the always-on-top mini player, or keep the normal Chrome window visible.
+- **Profiles that persist** - `config.json` keeps your items, preferences, and paths, while `chrome_data/` stores a reusable Chrome profile and `cookies/` stores auth state.
+- **Multi-language UI** - French, English, and Turkish translations are built in; the selected language and the light/dark theme are remembered.
 
 ## Screenshot
 
 <p align="center">
-  <img src="https://i.postimg.cc/RV7qshx2/image.png" alt="Main window" width="600" />
+  <img src="https://i.postimg.cc/zXtswf4K/image.png" alt="Main window" width="600" />
+</p>
+<p align="center">
+  <img src="https://i.postimg.cc/kX4Z5mDr/image.png" alt="Main window" width="600" />
 </p>
 
 ## Requirements
 
-- Windows 10/11 (Linux and macOS likely work but are not the primary target)
-- Python 3.10+ (tested with 3.10)
+- Windows 10/11 (Linux/macOS can work but are not the main target)
+- Python 3.10+ (tested on 3.10)
 - Google Chrome installed
-- Internet access (for `webdriver-manager` to fetch a matching ChromeDriver)
+- Internet connection so `webdriver-manager` can download a matching ChromeDriver
 
-## Install
+### Optional extras
 
-1) Create and activate a virtual environment (recommended)
+- `browser_cookie3` - enables the automatic cookie import flow
+- `undetected-chromedriver` is already required; keep Chrome updated so the bundled driver version stays compatible
+- A `.crx` extension or unpacked folder if you want to load a specific Chrome extension while mining
 
-   - `py -3.10 -m venv .venv`
-   - `.\.venv\Scripts\activate`
+## Quick start
 
-2) Install dependencies
+1. Create and activate a virtual environment (recommended)
+   ```powershell
+   py -3.10 -m venv .venv
+   .\.venv\Scripts\activate
+   ```
+2. Install dependencies
+   ```powershell
+   pip install customtkinter pillow selenium webdriver-manager undetected-chromedriver
+   pip install browser_cookie3  # optional but handy
+   ```
+3. Launch
+   ```powershell
+   python main.py
+   ```
+   On Windows you can also double-click `run.bat`.
 
-   - `pip install customtkinter pillow selenium webdriver-manager undetected-chromedriver`
+## Signing in & cookies
 
-3) Run
+- Click **Sign in (cookies)** to launch a Chrome window that points to the selected domain (for example `kick.com`). Log in, then press **OK** inside the app to persist the cookies to `cookies/<domain>.json`.
+- If `browser_cookie3` is installed, the app can pull cookies straight from Chrome/Edge/Firefox without opening a window. This avoids extra 2FA prompts or 429 errors and is the fastest way to refresh auth.
+- Cookies are stored per domain and are automatically applied before a worker navigates to a stream or before the drop campaign scraper hits `kick.com`.
 
-   - `python main.py`
-   - Or double‑click `run.bat` on Windows
+## Adding streams
 
-## Sign In and Cookies
+1. Press **Add link**, paste a Kick live URL (`https://kick.com/<channel>`), and enter the desired minutes (use `0` for infinite watch time).
+2. The entry appears in the table with its target, current elapsed time, and state badge.
+3. Use **Remove** to delete an entry. Removing an entry also stops its worker if it was running.
+4. Finished entries are kept in `config.json`; you can reset them by removing the `finished` flag or by adding the URL again with a new target.
 
-- Reliable drop tracking typically requires being signed in to Kick.
-- In the app, click “Sign in (cookies)”. If `browser_cookie3` is installed, cookies for the selected domain are imported automatically from your browser profile.
-- Otherwise, confirm to open a Chrome window for the site (e.g., `kick.com`).
-- Complete login in the opened window, then click “OK” in the app to save cookies.
-- Cookies are saved per domain in `./cookies/` (e.g., `cookies/kick.com.json`).
-  - Tip: install `browser_cookie3` to import cookies without logging in: `pip install browser_cookie3`
+## Running the queue
 
-## Add Links
+- **Start queue** begins processing top-to-bottom. Offline channels are tagged `Retry` and revisited later to avoid wasting time.
+- The timer only increments while the channel is truly live. If Kick reports the stream as offline mid-watch, the worker pauses and automatically resumes once it comes back online.
+- Status tags show `LIVE`, `PAUSED`, `FINISHED`, or `STOP`. You can stop any selected entry with **Stop selected**.
 
-- Click “Add link”, paste a full live URL (e.g., `https://kick.com/username`), and enter the target minutes (`0` = infinite).
-- The item is added to the table with its target.
+## Drop campaign helper
 
-## Start the Queue
+- Click **Drops campaigns** to fetch active campaigns from `https://web.kick.com/api/v1/drops/campaigns`. The app spins up a tiny hidden Chrome session so it can pass Cloudflare and reuse your stored cookies.
+- Browse each campaign, review the rewards, and view the participating channels (with avatars if Kick provides them).
+- Use **Add this channel** to push a single entry into your queue or **Add all channels** to target every eligible channel of that campaign. The helper reuses the minutes selector so you can decide how long you want to farm.
+- Because the fetch happens inside Chrome, the helper inherits any authenticated state you stored for `kick.com`, so you stay rate-limit friendly.
 
-- Click “Start queue” to process items in order:
-  - If a channel is offline at start, it is tagged “Retry” and skipped for now.
-  - If a stream goes offline mid‑watch, the timer pauses (PAUSED) and resumes once LIVE again.
-  - When the target is reached, the row is tagged FINISHED, recorded in `config.json`, and skipped on future runs.
+## Playback & visibility
 
-## Playback Options
+- **Mute** enforces muted audio (re-applied periodically so Kick cannot unmute the tab).
+- **Hide player** removes the `<video>` element while keeping playback going. With hide enabled, Chrome runs in a headless-like invisible window for the worker.
+- **Mini player** spawns a small always-on-top overlay plus a reduced Chrome window. Hide player takes precedence over the mini player, so leave Hide off if you want the overlay.
+- If you load an extension (`Chrome extension...` button), Chrome has to stay visible because Google disallows extensions in headless mode. The app detects this and adjusts visibility rules automatically.
 
-- Mute: forces the video to be muted (reapplied periodically)
-- Hide Player: hides the `<video>` element while it keeps playing
-- Mini Player: shows a small always‑on‑top preview and shrinks the browser window
-- Dark Mode: applies a dark theme to the UI (persisted)
+## Data & persistence
 
-### Mini Player notes
-
-- “Hide Player” takes precedence; if enabled, Mini Player isn’t shown.
-- The overlay is small and muted by default, to stay out of your way.
-- The main Chrome window is reduced and repositioned while Mini Player is active.
-
-### Window visibility rules
-
-- Hide Player ON → Chrome runs headless (fully hidden)
-- Hide Player OFF + Mini Player OFF → visible normal window
-- Mini Player ON → visible mini window (overrides Hide Player)
-- Chrome extension (.crx) loaded → always visible (Chrome disallows headless with .crx)
-
-## Data & Persistence
-
-- `config.json`: app state and preferences
-  - `items`: list of `{ url, minutes, finished }`
-  - `chromedriver_path` (optional)
-  - `extension_path` (optional, `.crx` or unpacked extension folder)
-  - `mute`, `hide_player`, `mini_player`, `dark_mode` (booleans)
-- `cookies/`: per‑domain cookie JSON (e.g., `kick.com.json`)
-- `chrome_data/`: persistent Chrome profile used by Selenium
-
-## Optional: Chrome Extension
-
-- Load a `.crx` or unpacked extension folder via the “Chrome extension...” button.
-- Note: when an extension is loaded, Chrome disables headless mode; the app handles this.
+- `config.json`
+  - `items`: queue entries `{ url, minutes, finished, elapsed }`
+  - `chromedriver_path`: optional manual override
+  - `extension_path`: `.crx` file or unpacked extension directory
+  - `mute`, `hide_player`, `mini_player`, `dark_mode`, `language`
+- `cookies/`: JSON exports per domain (for example `cookies/kick.com.json`)
+- `chrome_data/`: dedicated Chrome user data directory reused by Selenium
+- `chromedriver-win64/`: downloaded drivers kept for offline reuse
 
 ## Troubleshooting
 
-- Chrome doesn’t launch / driver mismatch
-  - Ensure Google Chrome is installed and up to date. `webdriver-manager` will fetch a matching driver automatically.
-  - If needed, use “Chromedriver...” to pick a specific driver binary.
+- **Chrome fails to launch** - make sure Chrome is installed and up to date. If you use a portable build or want a pinned driver, select it via **Chromedriver...**.
+- **Timer does not move** - confirm that you are signed in and that the channel is really live. The timer intentionally pauses whenever Kick marks the channel offline.
+- **429 / Too many requests** - favor the browser cookie import flow so you hit fewer login pages. If you must log in manually, wait 10-20 minutes between attempts and keep `chrome_data/` so Kick sees the same profile.
+- **Mini player too small** - disable Mini player or Hide player to restore the normal Chrome window.
+- **Need to re-watch a finished link** - edit `config.json` and remove the `finished` flag, or add the URL again.
 
-- Timer doesn’t increment
-  - Make sure you’re signed in (use “Sign in (cookies)” to save cookies).
-  - The timer only increases while the stream is actually LIVE.
+## Tips & housekeeping
 
-- Too Many Requests (429) during login
-  - The site may rate‑limit login attempts if repeated in a short period.
-  - Prefer importing cookies from your browser: `pip install browser_cookie3`, then click “Sign in (cookies)”. No login page hit, no 429.
-  - If you must retry login, wait 10–20 minutes between attempts. Keep the persistent profile in `chrome_data/` to avoid logging in again.
-
-- Noisy Chrome/DevTools logs in console
-  - The app reduces Chrome logging (exclude switches, lower log level). Some third‑party warnings are harmless and can be ignored.
-
-- UI too small in Mini Player
-  - Mini Player reduces the window size and overlays a small preview. Disable “Mini player” for a normal window.
-
-- Re‑run a finished link
-  - Edit `config.json` and remove the `finished` flag for that entry, or add the link again with a new target.
-
-## Tips
-
-- Use “Remove” to delete a selected row; it also stops a running worker for that row.
-- Language and theme options are available in the UI and are remembered.
-
-## Uninstall
-
-- Close the app and remove the folder. This deletes `config.json`, `cookies/`, and `chrome_data/`.
-
+- Queue entries, preferences, and translations persist between launches, so you can close the app mid-run and resume later.
+- The language selector and dark/light theme toggles are inside the UI footer; they sync to `config.json` instantly.
+- Use the drops helper regularly to keep up with new campaigns and quickly repopulate your queue.
+- When done, close the app and delete the folder to remove `config.json`, `cookies/`, and `chrome_data/`.
