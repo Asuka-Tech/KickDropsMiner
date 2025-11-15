@@ -1907,6 +1907,7 @@ class App(ctk.CTk):
                 result = fetch_drops_campaigns_and_progress()
                 campaigns = result.get("campaigns", [])
                 progress_data = result.get("progress", [])
+                progress_data = [p for p in progress_data if isinstance(p, dict)]
                 driver = result.get("driver")
                 
                 if not campaigns:
@@ -1923,6 +1924,8 @@ class App(ctk.CTk):
                 # Create a progress lookup by campaign ID
                 progress_by_id = {}
                 for prog in progress_data:
+                    if not isinstance(prog, dict):
+                        continue  # Skip unexpected progress entries
                     campaign_id = prog.get("id")
                     if campaign_id:
                         progress_by_id[campaign_id] = prog
@@ -2666,6 +2669,7 @@ class App(ctk.CTk):
             try:
                 result = fetch_drops_progress()
                 progress_data = result.get("progress", [])
+                progress_data = [p for p in progress_data if isinstance(p, dict)]
                 driver = result.get("driver")
                 
                 try:
