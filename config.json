@@ -6,6 +6,6 @@
   "hide_player": false,
   "mini_player": false,
   "force_160p": false,
-  "dark_mode": true,
+  "dark_mode": false,
   "language": "en"
 }

@@ -933,10 +933,14 @@ class StreamWorker(threading.Thread):
                 extension_path=self.extension_path,
             )
 
-            if not use_headless and self.mini_player:
+            if not use_headless:
                 try:
-                    self.driver.set_window_size(360, 360)
-                    self.driver.set_window_position(20, 20)
+                    if self.mini_player:
+                        self.driver.set_window_size(360, 360)
+                        self.driver.set_window_position(20, 20)
+                    else:
+                        # Always bring the main Chrome window back on-screen so it can be moved
+                        self.driver.set_window_position(60, 60)
                 except Exception:
                     pass
 
