@@ -271,19 +271,38 @@ BUILTIN_TRANSLATIONS = json.loads(_BUILTIN_TRANSLATIONS_JSON)
 
 def _load_external_translations():
     data = {}
-    for lang in ("fr", "en", "tr"):
-        path = os.path.join(APP_DIR, "locales", lang, "messages.json")
+    candidate_roots = []
+    # Bundled resources (PyInstaller onefile: _MEIPASS)
+    candidate_roots.append(os.path.join(APP_DIR, "locales"))
+    # Folder next to the executable (useful when shipping a locales/ dir alongside the EXE)
+    candidate_roots.append(os.path.join(os.path.dirname(os.path.abspath(sys.executable)), "locales"))
+    # Workspace/data directory (allows portable overrides)
+    candidate_roots.append(os.path.join(DATA_DIR, "locales"))
+
+    for locales_dir in candidate_roots:
         try:
-            with open(path, "r", encoding="utf-8") as f:
-                data[lang] = json.load(f)
-        except Exception:
-            data[lang] = {}
+            for entry in os.scandir(locales_dir):
+                if not entry.is_dir():
+                    continue
+                lang = entry.name
+                path = os.path.join(entry.path, "messages.json")
+                if not os.path.isfile(path):
+                    continue
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        data[lang] = json.load(f)
+                except Exception:
+                    # Ignore malformed translation files so the app can still start
+                    pass
+        except FileNotFoundError:
+            continue
     return data
 
 
 def _merge_fallback(external, builtin):
     result = {}
-    for lang in ("fr", "en", "tr"):
+    languages = set(builtin.keys()) | set(external.keys())
+    for lang in sorted(languages):
         merged = dict(builtin.get(lang, {}))
         merged.update(external.get(lang, {}))
         result[lang] = merged
@@ -1080,7 +1099,7 @@ class Config:
         self.mini_player = False
         self.force_160p = False
         self.dark_mode = True  # Dark by default
-        self.language = "fr"  # fr or en
+        self.language = "fr"  # default language code
         self.load()
 
     def load(self):
@@ -1185,6 +1204,34 @@ class App(ctk.CTk):
             self.protocol("WM_DELETE_WINDOW", self.on_close)
         except Exception:
             pass
+
+    def _available_languages(self):
+        codes = list(TRANSLATIONS.keys())
+        ordered = []
+        for preferred in ("fr", "en"):
+            if preferred in codes:
+                ordered.append(preferred)
+        for code in sorted(c for c in codes if c not in ordered):
+            ordered.append(code)
+        return ordered
+
+    def _language_label(self, lang_code):
+        label_key = f"language_{lang_code}"
+        label = translate(self.config_data.language, label_key)
+        if label == label_key:
+            label = translate(lang_code, label_key)
+        if label == label_key:
+            label = lang_code
+        return label
+
+    def _get_language_choices(self):
+        codes = self._available_languages()
+        if self.config_data.language not in codes and codes:
+            self.config_data.language = codes[0]
+            self.config_data.save()
+        labels = {code: self._language_label(code) for code in codes}
+        self.lang_display_to_code = {label: code for code, label in labels.items()}
+        return [labels[code] for code in codes]
 
     # ----------- UI construction -----------
     def _build_sidebar(self):
@@ -1331,17 +1378,17 @@ class App(ctk.CTk):
         )
         theme_menu.grid(row=14, column=0, padx=14, pady=(0, 14), sticky="w")
 
-        # Language (only FR/EN in dropdown for now)
-        self.lang_var = tk.StringVar(
-            value=self.t("language_fr")
-            if self.config_data.language == "fr"
-            else self.t("language_en")
-        )
+        # Language (populate from available locale files)
+        language_choices = self._get_language_choices()
+        current_label = self._language_label(self.config_data.language)
+        if current_label not in language_choices and language_choices:
+            current_label = language_choices[0]
+        self.lang_var = tk.StringVar(value=current_label)
         lang_label = ctk.CTkLabel(self.sidebar, text=self.t("label_language"))
         lang_label.grid(row=15, column=0, padx=14, pady=(4, 4), sticky="w")
         lang_menu = ctk.CTkOptionMenu(
             self.sidebar,
-            values=[self.t("language_fr"), self.t("language_en")],
+            values=language_choices,
             command=self.change_language,
             variable=self.lang_var,
             width=180,
@@ -1484,15 +1531,27 @@ class App(ctk.CTk):
 
     # ----------- Language -----------
     def change_language(self, choice):
-        # Map the choice to fr/en
-        new_lang = "fr" if "français" in choice.lower() else "en"
-        
+        mapping = getattr(self, "lang_display_to_code", {})
+        new_lang = None
+
+        if isinstance(choice, str):
+            new_lang = mapping.get(choice)
+            if not new_lang:
+                # Fallback: case-insensitive match
+                for label, code in mapping.items():
+                    if label.lower() == choice.lower():
+                        new_lang = code
+                        break
+
+        if not new_lang:
+            return
+
         if new_lang == self.config_data.language:
             return  # No change needed
-            
+
         self.config_data.language = new_lang
         self.config_data.save()
-        
+
         # Rebuild sidebar & content to refresh text
         try:
             for w in self.sidebar.winfo_children():
@@ -1500,20 +1559,18 @@ class App(ctk.CTk):
             self._build_sidebar()
         except Exception:
             pass
-            
+
         try:
             for w in self.content.winfo_children():
                 w.destroy()
             self._build_content()
         except Exception:
             pass
-            
+
         # Update status bar if it's at the initial text
         try:
-            if self.status_var.get() in (
-                translate("fr", "status_ready"),
-                translate("en", "status_ready"),
-            ):
+            ready_variants = [translate(lang, "status_ready") for lang in TRANSLATIONS]
+            if self.status_var.get() in ready_variants:
                 self.status_var.set(self.t("status_ready"))
         except Exception:
             pass
